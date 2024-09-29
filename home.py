@@ -1,44 +1,8 @@
 import streamlit as st
-st.set_page_config(layout="wide")
-import hmac
+import os
 from main import generate_prompt_page
 
-def check_password() -> bool:
-    """Returns `True` if the user had a correct password."""
-
-    def login_form():
-        """Form with widgets to collect user information"""
-        with st.form("Credentials", clear_on_submit=True):
-            st.markdown('<div class="login-form">', unsafe_allow_html=True)
-            st.text_input("Username", key="username")
-            st.text_input("Password", type="password", key="password")
-            submit_button = st.form_submit_button("Log in", on_click=password_entered)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-    def password_entered():
-        """Checks whether a password entered by the user is correct."""
-        if (
-            st.session_state["username"] in st.secrets["passwords"]
-            and hmac.compare_digest(
-                st.session_state["password"],
-                st.secrets["passwords"][st.session_state["username"]],
-            )
-        ):
-            st.session_state["password_correct"] = True
-            del st.session_state["password"]  # Don't store the username or password.
-            del st.session_state["username"]
-        else:
-            st.session_state["password_correct"] = False
-
-    # Return True if the username + password is validated.
-    if st.session_state.get("password_correct", False):
-        return True
-
-    # Show inputs for username + password.
-    login_form()
-    if "password_correct" in st.session_state:
-        st.error("😕 User not known or password incorrect")
-    return False
+st.set_page_config(layout="wide")
 
 def home_page():
     st.title("Welcome to CodePromptPro")
@@ -115,17 +79,6 @@ def main():
     # Call this function at the start of your app
     load_css()
 
-    # Initialize session state for logout
-    if 'logout' not in st.session_state:
-        st.session_state.logout = False
-
-    if st.session_state.logout:
-        st.session_state.clear()
-        st.rerun()
-
-    if not check_password():
-        st.stop()
-
     # Set default page to Home if not set
     if 'page' not in st.session_state:
         st.session_state.page = "Home"
@@ -137,16 +90,19 @@ def main():
     if st.sidebar.button("Generate Prompt", key="generate_prompt", help="Generate a new prompt"):
         st.session_state.page = "Generate Prompt"
     
-    # Add a logout button
-    if st.sidebar.button("Logout", key="logout"):
-        st.session_state.logout = True
-        st.rerun()
+    # Add Claude API key input in the sidebar
+    claude_api_key = st.sidebar.text_input("Enter your Claude API key", type="password")
+    if claude_api_key:
+        os.environ["ANTHROPIC_API_KEY"] = claude_api_key
 
     # Main content
     if st.session_state.page == "Home":
         home_page()
     elif st.session_state.page == "Generate Prompt":
-        generate_prompt_page()
+        if not claude_api_key:
+            st.warning("Please enter your Claude API key in the sidebar to use the Generate Prompt feature.")
+        else:
+            generate_prompt_page()
 
 if __name__ == "__main__":
     main()
